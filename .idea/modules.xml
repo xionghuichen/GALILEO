@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/GALILEO.iml" filepath="$PROJECT_DIR$/.idea/GALILEO.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../coax/.idea/coax.iml" filepath="$PROJECT_DIR$/../coax/.idea/coax.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../haiku-baseline/.idea/haiku-baseline.iml" filepath="$PROJECT_DIR$/../haiku-baseline/.idea/haiku-baseline.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../metapid/.idea/metapid.iml" filepath="$PROJECT_DIR$/../metapid/.idea/metapid.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../rlax/.idea/rlax.iml" filepath="$PROJECT_DIR$/../rlax/.idea/rlax.iml" />
+    </modules>
+  </component>
+</project>

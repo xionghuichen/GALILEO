@@ -127,3 +127,20 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# RLA
+**/log/**
+**/checkpoint/**
+**/results/**
+**/archive_tester/**
+**/code/**
+.idea/**
+**/env_vis/*
+*.out
+temp.sh
+.vscode/
+output/
+datasets/
+**/GMAIL/toy/datasets/*
+**/arc/*
+torch_res/
