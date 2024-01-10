@@ -10,6 +10,8 @@ The optimization pipeline of the proposed algorithm is as follows:
 
 <img src="./resources/galileo-alg-framework-4.jpg" width="600"/>
 
+Also, you can see this Twitter thread for a brief discussion of this algorithm: https://x.com/xiong_hui_chen/status/1737597369514860803?s=20
+
 ## quickstart
 
 install
