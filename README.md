@@ -2,7 +2,7 @@
 
 The official code of "Adversarial Counterfactual Environment Model Learning". 
 
-We provide a faithful offline dynamics model learning techniques based on the adversarial model learning paradigm. 
+We provide a faithful offline dynamics model learning technique based on the adversarial model learning paradigm. 
 
 ![](./resources/Neurips-galileo-poster.png)
 
@@ -12,6 +12,14 @@ install
 ```
 pip install -e .
 pip install -r requirements.txt
+```
+
+install RLAssistant for experiment management
+
+```
+git clone https://github.com/polixir/RLAssistant.git
+cd RLAssistant
+pip install -e .
 ```
 
 run
