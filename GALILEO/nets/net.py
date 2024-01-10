@@ -1,81 +1,143 @@
 import tensorflow as tf
 import tensorflow.contrib.distributions as tfd
-
+import numpy as np
+from GALILEO.nets.base import  TfBasicClass
+from GALILEO.utils import *
 LOG_STD_MAX = 2
 LOG_STD_MIN = -10
 
-def DM_net(s, a, dim_next, reuse, std_bound, name='dm_net'): # generate P_S_next aka reward
-    dm_input = tf.concat([s, a], axis=-1)
-    with tf.variable_scope(name, reuse=reuse):
-        # policy_input = tf.reduce_mean(policy_input, axis=-1, keepdims=True)
-        x_h = tf.layers.dense(dm_input, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        # y = tf.layers.dense(x_h, units=1)
-        # mean = tf.sigmoid(tf.layers.dense(x_h, units=dim_next)/5) * 1.1
-        mean = tf.nn.tanh(tf.layers.dense(x_h, units=dim_next)) * 1.2
-        # std = tf.exp(tf.get_variable(name="std", shape=[1, 1], initializer=tf.zeros_initializer())) * 0.3 + 1e-6
-        # std = ((tf.tanh(tf.layers.dense(x_h, units=1)) + 1) * 0.3 + 1e-4)
-        logstd = tf.get_variable(name="std", shape=[dim_next], initializer=tf.constant_initializer(-1.3))
+def layer_block(block_input, units, activation=tf.nn.leaky_relu, rate=0.1, training=False, use_atten_block=False):
+    x_h = tf.layers.dense(block_input, units=units, activation=activation)
+    if use_atten_block:
+        x_h = tf.layers.dropout(x_h, rate=rate, training=training)
+        x_h = block_input + x_h
+        x_h = tf.contrib.layers.layer_norm(x_h)
+    return x_h
+
+
+class DM(TfBasicClass):
+    
+    def __init__(self, hid_dim, dim_next, dm_std_init=0.3, scope='dm_net'):
+        super(DM, self).__init__(scope)
+        self.dim_next = dim_next
+        self.hid_dim = hid_dim
+        self.dm_std_init = dm_std_init
+
+    def _obj_construct(self, source_input):
+        s, a = source_input
+        dm_input = tf.concat([s, a], axis=-1)
+        x_h = tf.layers.dense(dm_input, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        # x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        mean = (tf.nn.tanh(tf.layers.dense(x_h, units=self.dim_next)) + 0.8) / 1.6
+        # mean = tf.sigmoid(tf.layers.dense(x_h, units=self.dim_next)/5) * 1.1
+
+        logstd = tf.get_variable(name="std", shape=[self.dim_next], initializer=tf.zeros_initializer())
         logstd = tf.clip_by_value(logstd, LOG_STD_MIN, LOG_STD_MAX)
-        # std = tf.exp(logstd) * 0.3 + 1e-6
-        std = tf.exp(logstd)
-    return tfd.Normal(loc=mean, scale=std)
+        std = tf.exp(logstd) * self.dm_std_init + 1e-6
+        return tfd.Normal(loc=mean, scale=std), mean, std
+    
+class Discriminator(TfBasicClass):
+    
+    def __init__(self, hid_dim, dis_noise, mask_s_next, s_add_noise, res_dis, occ_noise_coef, scope='dis_net'):
+        super(Discriminator, self).__init__(scope)
+        self.hid_dim = hid_dim
+        self.dis_noise = dis_noise
+        self.s_add_noise = s_add_noise
+        self.mask_s_next = mask_s_next
+        self.res_dis = res_dis
+        self.occ_noise_coef = occ_noise_coef
+    
+    def _obj_construct(self, source_input):
+        s, a, s_next = source_input
+        if self.mask_s_next:
+            s_next *= 0
+        dis_input = tf.concat([s, a, s_next], axis=-1)
+        input_dim = dis_input.shape[-1].value
+        if not self.res_dis:
+            x_h = tf.layers.dense(dis_input, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            y = tf.layers.dense(x_h, units=1)
+        else:
+            x_h = tf.layers.dense(dis_input, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            residual = tf.layers.dense(x_h, units=input_dim)
+            x = dis_input + residual
+            x = tf.nn.tanh(x)
+            y = tf.layers.dense(x, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            y = tf.layers.dense(y, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            y = tf.layers.dense(y, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            y = tf.layers.dense(y, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            y = tf.layers.dense(y, units=self.hid_dim, activation=tf.nn.leaky_relu)
+            y = tf.layers.dense(y, units=1)
+        return y
+    
+    def logits(self, source_input, with_noise):
+        s, a, s_next = source_input
+        if with_noise:
+            if self.s_add_noise:
+                return self.obj_graph_construct((s + tf.random_normal(tf.shape(s), 0, self.dis_noise * self.occ_noise_coef),
+                                                 a + tf.random_normal(tf.shape(a), 0, self.dis_noise),
+                                                 s_next + tf.random_normal(tf.shape(s_next), 0, self.dis_noise)))
+            else:
+                return self.obj_graph_construct((s, a + tf.random_normal(tf.shape(a), 0, self.dis_noise),
+                                                 s_next + tf.random_normal(tf.shape(s_next), 0, self.dis_noise)))
+        else:
+            return self.obj_graph_construct((s, a, s_next))
+    
+    def prob(self, source_input, with_noise):
+        return tf.nn.sigmoid(self.logits(source_input, with_noise))
+
+    def reward(self, source_input, with_noise):
+        return - tf.log(1 - self.prob(source_input, with_noise) + 1e-8)
 
 
-def dis_net(s, a, s_next, reuse, name='dis_net'):
-    dm_input = tf.concat([s, a, s_next], axis=-1)
-    input_dim = dm_input.shape[-1].value
-    with tf.variable_scope(name, reuse=reuse):
-        # policy_input = tf.reduce_mean(policy_input, axis=-1, keepdims=True)
-        x_h = tf.layers.dense(dm_input, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        residual = tf.layers.dense(x_h, units=input_dim)
-        x = dm_input + residual
-        x = tf.nn.tanh(x)
-        y = tf.layers.dense(x, units=512, activation=tf.nn.leaky_relu)
-        y = tf.layers.dense(y, units=512, activation=tf.nn.leaky_relu)
-        y = tf.layers.dense(y, units=512, activation=tf.nn.leaky_relu)
-        y = tf.layers.dense(y, units=512, activation=tf.nn.leaky_relu)
-        y = tf.layers.dense(y, units=512, activation=tf.nn.leaky_relu)
-        y = tf.layers.dense(y, units=1)
+class V(TfBasicClass):
+    
+    def __init__(self, hid_dim, scope='v_net'):
+        super(V, self).__init__(scope)
+        self.hid_dim = hid_dim
         
-    return y
-
-def v_net(s, reuse, name='v_net'):
-
-    with tf.variable_scope(name, reuse=reuse):
-        # policy_input = tf.reduce_mean(policy_input, axis=-1, keepdims=True)
-        x_h = tf.layers.dense(s, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
+    def _obj_construct(self, source_input):
+        s = source_input
+        x_h = tf.layers.dense(s, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        # x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
         y = tf.layers.dense(x_h, units=1)
-    return y
+        return y
+    
 
-
-def pi_net(s, reuse, std_bound, n_actions, init_std=0.3, name='pi_net'):
-    input = s
-    with tf.variable_scope(name, reuse=reuse):
-        # policy_input = tf.reduce_mean(policy_input, axis=-1, keepdims=True)
-        x_h = tf.layers.dense(input, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        x_h = tf.layers.dense(x_h, units=512, activation=tf.nn.leaky_relu)
-        # mean = tf.layers.dense(x_h, units=1)
-        # mean = tf.sigmoid(tf.layers.dense(x_h, units=n_actions) / 5) * 1.1
-        mean = tf.nn.tanh(tf.layers.dense(x_h, units=n_actions)) * 1.2
-
-        # std = tf.exp(tf.get_variable(name="std", shape=[1, 1], initializer=tf.zeros_initializer())) + 1e-3
-        # std = (tf.tanh(tf.layers.dense(x_h, units=1)) + 1) * 0.3 + std_bound
-        logstd = tf.get_variable(name="std", shape=[n_actions], initializer=tf.constant_initializer(-1.3))
-        # logstd = tf.clip_by_value(logstd, tf.log(std_bound/init_std), LOG_STD_MAX)
-        logstd = tf.clip_by_value(logstd, LOG_STD_MIN, LOG_STD_MAX)
-        # std = tf.exp(logstd) * init_std
+class Pi(TfBasicClass):
+    
+    def __init__(self, std_bound, n_actions, hid_dim, init_std=0.3, scope='pi_net'):
+        super(Pi, self).__init__(scope)
+        self.hid_dim = hid_dim
+        self.std_bound = std_bound
+        self.init_std = init_std
+        self.n_actions = n_actions
+    
+    def _obj_construct(self, source_input):
+        s = source_input
+        x_h = tf.layers.dense(s, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        x_h = tf.layers.dense(x_h, units=self.hid_dim, activation=tf.nn.leaky_relu)
+        mean = (tf.nn.tanh(tf.layers.dense(x_h, units=self.n_actions)) + 0.8) / 1.6
+        # mean = tf.sigmoid(tf.layers.dense(x_h, units=self.n_actions) / 5) * 1.1
+        logstd = tf.get_variable(name="std", shape=[self.n_actions], initializer=tf.constant_initializer(np.log(self.init_std)))
+        logstd = tf.clip_by_value(logstd, tf.log(self.std_bound), LOG_STD_MAX)
         std = tf.exp(logstd)
-    return tfd.Normal(loc=mean, scale=std)
+        return tfd.Normal(loc=mean, scale=std), mean, std

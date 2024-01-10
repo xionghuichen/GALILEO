@@ -5,9 +5,11 @@ class AlgType:
     SL = 'sl'
     IPW = 'ipw'
     GAN = 'gan'
-    MAIL = 'mail'
+    GALILEO = 'galileo'
     GANITE = 'ganite'
     GAIL = 'gail'
+    REAL_ENV = 'real_env'
+    REAL_ENV_MODEL_ROLLOUT = 'real_env_mr'
 
 class DataType:
     GNFC = 'gnfc'
@@ -15,3 +17,4 @@ class DataType:
     D4RL = 'd4rl'
 
 MAX_S_MEAN = 50
+EPSILON = 1e-6

@@ -4,16 +4,7 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
-    <content url="file://$MODULE_DIR$/../RLAssistant">
-      <sourceFolder url="file://$MODULE_DIR$/../RLAssistant" isTestSource="false" />
-    </content>
-    <content url="file://$MODULE_DIR$/../rlax">
-      <sourceFolder url="file://$MODULE_DIR$/../rlax" isTestSource="false" />
-    </content>
-    <content url="file://$MODULE_DIR$/../stable-baselines">
-      <sourceFolder url="file://$MODULE_DIR$/../stable-baselines" isTestSource="false" />
-    </content>
-    <orderEntry type="jdk" jdkName="Python 3.7 (meituan)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Remote Python 3.7.13 (sftp://hadoop-hmart-peisongpa@10.138.135.40:44399/home/hadoop-hmart-peisongpa/.conda/envs/pytorch19/bin/python)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="coax" />
     <orderEntry type="module" module-name="rlax" />

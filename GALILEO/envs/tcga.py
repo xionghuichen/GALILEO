@@ -8,7 +8,7 @@ from __future__ import print_function
 
 import numpy as np
 import pickle
-
+import tqdm
 from sklearn.model_selection import StratifiedShuffleSplit
 
 
@@ -24,8 +24,6 @@ def compute_beta(alpha, optimal_dosage):
         beta = (alpha - 1.0) / float(optimal_dosage) + (2.0 - alpha)
 
     return beta
-
-
 
 
 def get_patient_outcome(x, v, treatment, dosage, scaling_parameter=10):
@@ -89,7 +87,7 @@ class TCGA_Data():
         self.validation_fraction = args['validation_fraction']
         self.test_fraction = args['test_fraction']
 
-        self.tcga_data = pickle.load(open('datasets/tcga.p', 'rb'))
+        self.tcga_data = pickle.load(open(args['data_location'], 'rb'))
         self.patients = self.normalize_data(self.tcga_data['rnaseq'])
 
         self.scaling_parameter = 10
@@ -100,8 +98,6 @@ class TCGA_Data():
         for j in range(self.num_weights):
             self.v[j] = np.random.uniform(0, 10, size=(self.patients.shape[1]))
             self.v[j] = self.v[j] / np.linalg.norm(self.v[j])
-
-        self.dataset = self.generate_dataset()
 
     def normalize_data(self, patient_features):
         x = (patient_features - np.min(patient_features, axis=0)) / (
@@ -130,7 +126,7 @@ class TCGA_Data():
             selected_patients = self.patients[idx]
         else:
             selected_patients = self.patients
-        for patient in selected_patients:
+        for patient in tqdm.tqdm(selected_patients):
             t, dosage, y = self.generate_patient(x=patient)
             tcga_dataset['x'].append(patient)
             tcga_dataset['t'].append(t)
@@ -217,7 +213,7 @@ class TCGA_Data():
 
 class TcgaEnv(object):
     def __init__(self, tcga_data):
-        self.tcga_data_class = tcga_data
+        self.tcga_data_class = tcga_data.data_class
         assert isinstance(self.tcga_data_class, TCGA_Data)
         pass
 
