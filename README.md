@@ -8,7 +8,7 @@ We provide a faithful offline dynamics model learning technique based on the adv
 
 The optimization pipeline of the proposed algorithm is as follows:
 
-![](./resources/galileo-alg-framework-4.png)
+<img src="./resources/galileo-alg-framework-4.jpg" width="600"/>
 
 ## quickstart
 
