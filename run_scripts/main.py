@@ -144,7 +144,7 @@ def main():
     exp_manager.configure(task_table_name=task_table_name,
                           rla_config=os.path.join(get_package_path(), 'rla_config.yaml'),
                           ignore_file_path=os.path.join(get_package_path(), '.gitignore'),
-                          data_root=get_package_path())
+                          data_root=os.path.join(get_package_path(), 'RLA_LOG'))
     exp_manager.log_files_gen()
     if args.loaded_task_name != '':
         #     exp_loader = ExperimentLoader()
