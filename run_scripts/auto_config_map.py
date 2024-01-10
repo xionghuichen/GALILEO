@@ -190,12 +190,3 @@ def update_hp(kwargs):
         kwargs.update(sl_config[kwargs['data_type']])
     if kwargs['auto_d_noise']:
         kwargs['dis_noise'] = kwargs['std_bound']
-    if kwargs['alg_type'] == AlgType.GAIL:
-        kwargs['dis_noise'] = 0.0
-        kwargs['only_model_likelihood'] = True
-        kwargs['rescale_grad'] = False
-    if kwargs['alg_type'] == AlgType.GANITE:
-        kwargs['dis_noise'] = 0.0
-        kwargs['bc_step'] = 0
-        kwargs['rescale_grad'] = False
-        kwargs['gamma'] = 0.0
