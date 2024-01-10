@@ -6,6 +6,10 @@ We provide a faithful offline dynamics model learning technique based on the adv
 
 ![](./resources/Neurips-galileo-poster.png)
 
+The optimization pipeline of the proposed algorithm is as follows:
+
+![](./resources/galileo-alg-framework-4.png)
+
 ## quickstart
 
 install
